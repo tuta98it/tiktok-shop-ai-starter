@@ -18,19 +18,35 @@ export default function LoginPage() {
     setLoading(true);
     setMessage("");
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const result = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+      ? await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
+      : await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
 
     setLoading(false);
 
     if (result.error) {
-      setMessage(result.error.message);
+      const errorMessage = result.error.message === "Invalid login credentials"
+        ? "Email hoặc mật khẩu không đúng. Nếu vừa đăng ký, hãy xác nhận email trong hộp thư trước khi đăng nhập."
+        : result.error.message;
+      setMessage(errorMessage);
       return;
     }
 
     if (mode === "register") {
-      setMessage("Đăng ký thành công. Kiểm tra email nếu Supabase yêu cầu xác nhận.");
+      if (result.data.session) {
+        router.push("/dashboard");
+        return;
+      }
+
+      setMessage("Đăng ký thành công. Hãy mở email xác nhận từ Supabase rồi đăng nhập lại.");
       return;
     }
 
@@ -49,6 +65,7 @@ export default function LoginPage() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
           required
         />
 
@@ -58,6 +75,7 @@ export default function LoginPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
           required
           minLength={6}
         />
