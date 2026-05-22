@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +54,32 @@ export default function LoginPage() {
     router.push("/dashboard");
   }
 
+  async function resendConfirmation() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setMessage("Nhập email trước khi gửi lại email xác nhận.");
+      return;
+    }
+
+    setResending(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+
+    setResending(false);
+    setMessage(
+      error
+        ? error.message
+        : "Đã gửi lại email xác nhận. Nếu vẫn không thấy, hãy kiểm tra Spam hoặc tắt confirm email trong Supabase khi chạy dev."
+    );
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6">
       <form onSubmit={handleSubmit} className="w-full max-w-md rounded-3xl bg-white p-8 shadow-sm">
@@ -85,6 +112,17 @@ export default function LoginPage() {
         </button>
 
         {message && <p className="mt-4 rounded-2xl bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+
+        {mode === "register" && (
+          <button
+            type="button"
+            onClick={resendConfirmation}
+            disabled={resending}
+            className="mt-4 text-sm font-semibold text-slate-700 disabled:opacity-60"
+          >
+            {resending ? "Đang gửi lại..." : "Gửi lại email xác nhận"}
+          </button>
+        )}
 
         <button
           type="button"

@@ -10,14 +10,39 @@ type Body = {
   tone?: string;
 };
 
+type ApiErrorLike = {
+  status?: number;
+  code?: string;
+  message?: string;
+};
+
 function cleanText(value: unknown, fallback = "") {
   return typeof value === "string" ? value.trim().slice(0, 500) : fallback;
+}
+
+function getOpenAIErrorMessage(error: unknown) {
+  const apiError = error as ApiErrorLike;
+  const message = apiError.message ?? "";
+
+  if (
+    apiError.status === 429 ||
+    apiError.code === "insufficient_quota" ||
+    message.toLowerCase().includes("quota")
+  ) {
+    return "OpenAI API key đã hết quota hoặc chưa có billing/credit. Hãy kiểm tra Billing và Usage trong OpenAI Platform rồi thử lại.";
+  }
+
+  if (apiError.status === 401) {
+    return "OPENAI_API_KEY không hợp lệ hoặc đã bị thu hồi. Hãy tạo API key mới trong OpenAI Platform.";
+  }
+
+  return message || "Không gọi được OpenAI API.";
 }
 
 export async function POST(request: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
+      return NextResponse.json({ error: "Thiếu OPENAI_API_KEY trong .env.local." }, { status: 500 });
     }
 
     const supabase = await createClient();
@@ -55,7 +80,7 @@ Trả về bằng tiếng Việt theo format:
 `;
 
     const response = await openai.responses.create({
-      model: "gpt-5.2",
+      model: "gpt-5-nano",
       input: prompt,
     });
 
@@ -79,7 +104,6 @@ Trả về bằng tiếng Việt theo format:
 
     return NextResponse.json({ output, generation });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: getOpenAIErrorMessage(error) }, { status: 500 });
   }
 }
